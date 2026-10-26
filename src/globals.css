@@ -1,0 +1,202 @@
+@import "tailwindcss";
+
+/*
+ * Pokédex look & feel.
+ * Device = red plastic. Screen = glowing green, like an old handheld.
+ */
+
+html,
+body {
+  /* The page itself never scrolls; only the green screen does. */
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+body {
+  background: #171717;
+  color: #f5f5f5;
+  font-family: ui-rounded, "Trebuchet MS", system-ui, sans-serif;
+  /* Kids tap a lot: no accidental text selection or blue tap flashes. */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pokedex-device {
+  background: linear-gradient(160deg, #dc2626 0%, #b91c1c 60%, #7f1d1d 100%);
+  box-shadow: inset 0 -6px 0 rgba(0, 0, 0, 0.25), 0 20px 40px rgba(0, 0, 0, 0.5);
+}
+
+/* Big blue camera lens */
+.lens {
+  width: 48px;
+  height: 48px;
+  border-radius: 9999px;
+  border: 5px solid #f5f5f5;
+  background: radial-gradient(circle at 35% 35%, #bfdbfe 0%, #3b82f6 35%, #1e3a8a 100%);
+  box-shadow: 0 0 0 3px #111;
+  transition: box-shadow 0.2s;
+}
+.lens-on {
+  box-shadow: 0 0 0 3px #111, 0 0 24px 8px #60a5fa;
+  animation: pulse 0.6s ease-in-out infinite alternate;
+}
+
+/* The three small status lights */
+.light {
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  border: 2px solid #111;
+  opacity: 0.35;
+  transition: opacity 0.2s;
+}
+.light-on {
+  opacity: 1;
+  box-shadow: 0 0 12px 3px currentColor;
+  animation: pulse 0.5s ease-in-out infinite alternate;
+}
+
+/* Gray frame around the screen */
+.screen-bezel {
+  background: #e5e5e5;
+  border-radius: 12px 12px 12px 40px;
+  padding: 8px;
+  box-shadow: inset 0 0 0 3px #111;
+}
+
+/* The glowing green screen.
+ * Scroll rules (one clean panel): page = no scroll, device = flex column,
+ * bezel = overflow hidden, .pokedex-scroll inside the green screen = the ONLY scroller.
+ * Nothing inside the screen gets its own overflow. */
+.pokedex-scroll {
+  scrollbar-width: none; /* Firefox: still scrollable, just no bar */
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+.pokedex-scroll::-webkit-scrollbar {
+  display: none; /* Chrome/Safari: hide the bar, keep the scrolling */
+}
+.screen-content > * {
+  min-width: 0;
+}
+
+.pokedex-screen {
+  background: radial-gradient(ellipse at center, #1f4d2b 0%, #0f2a17 100%);
+  color: #d9f99d;
+  border-radius: 8px 8px 8px 36px;
+  box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.6);
+  font-family: ui-monospace, "Courier New", monospace;
+}
+
+.screen-header {
+  font-size: 1.25rem;
+  line-height: 1.2;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border-bottom: 2px dashed rgba(217, 249, 157, 0.4);
+  padding-bottom: 4px;
+}
+.screen-panel {
+  background: rgba(0, 0, 0, 0.25);
+  border: 2px solid rgba(217, 249, 157, 0.35);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+/* PokemonCard: picture size scales with the screen so a card + stats fit on a phone. */
+.card-name {
+  font-size: 1.35rem;
+  line-height: 1.1;
+}
+.card-art {
+  width: min(9rem, 30vh, 100%);
+  height: min(9rem, 30vh);
+}
+@media (min-width: 640px) {
+  .card-name { font-size: 1.6rem; }
+  .card-art { width: min(11rem, 30vh, 100%); height: min(11rem, 30vh); }
+}
+.screen-title {
+  font-size: 0.85rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #fde68a; /* amber */
+  margin-bottom: 4px;
+}
+.screen-label {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  color: #fde68a;
+}
+.pixelated {
+  image-rendering: pixelated;
+}
+
+/* Pokéball on the welcome screen */
+.pokeball {
+  width: 88px;
+  height: 88px;
+  border-radius: 9999px;
+  border: 6px solid #111;
+  background: linear-gradient(to bottom, #ef4444 0 46%, #111 46% 54%, #f5f5f5 54% 100%);
+  position: relative;
+  animation: wobble 2.5s ease-in-out infinite;
+}
+.pokeball::after {
+  content: "";
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: 30px;
+  height: 30px;
+  transform: translate(-50%, -50%);
+  border-radius: 9999px;
+  background: #f5f5f5;
+  border: 6px solid #111;
+}
+
+/* The giant talk button */
+.talk-button {
+  width: 104px;
+  height: 104px;
+  border-radius: 9999px;
+  display: grid;
+  place-items: center;
+  color: white;
+  background: radial-gradient(circle at 35% 30%, #f87171, #b91c1c 70%);
+  border: 6px solid #111;
+  box-shadow: 0 8px 0 #450a0a, 0 12px 20px rgba(0, 0, 0, 0.4);
+  touch-action: none; /* don't scroll the page while holding the button */
+  transition: transform 0.08s, box-shadow 0.08s;
+}
+.talk-button:active,
+.talk-button-on {
+  transform: translateY(6px);
+  box-shadow: 0 2px 0 #450a0a, 0 0 0 10px rgba(250, 204, 21, 0.6);
+}
+.talk-button-on {
+  animation: pulse 0.7s ease-in-out infinite alternate;
+}
+.talk-button:disabled {
+  filter: grayscale(0.6);
+  opacity: 0.7;
+}
+
+@keyframes pulse {
+  from { filter: brightness(1); }
+  to { filter: brightness(1.35); }
+}
+@keyframes wobble {
+  0%, 70%, 100% { transform: rotate(0); }
+  75% { transform: rotate(-12deg); }
+  85% { transform: rotate(12deg); }
+}
+
+/* Short phones: give the screen more room. */
+@media (max-height: 700px) {
+  .talk-button { width: 84px; height: 84px; }
+  .lens { width: 36px; height: 36px; border-width: 4px; }
+}
