@@ -4,7 +4,7 @@
  * Private deploy (VITE_SERVER_PROXY): to this site's /api/or/* Worker, which adds the server key.
  */
 import { APP_TITLE, OPENROUTER_DIRECT, SERVER_PROXY } from "./config";
-import { forgetUserKey, getAccessPassword, getUserKey } from "./keys";
+import { forgetAccessPassword, forgetUserKey, getAccessPassword, getUserKey } from "./keys";
 
 export class NeedsKeyError extends Error {}
 
@@ -29,6 +29,11 @@ export async function openRouter(path: string, body: string, signal?: AbortSigna
     forgetUserKey();
     window.dispatchEvent(new Event("dex-needs-key"));
     throw new NeedsKeyError("Your OpenRouter key was not accepted. Connect again.");
+  }
+  if (res.status === 403 && SERVER_PROXY) {
+    forgetAccessPassword();
+    window.dispatchEvent(new Event("dex-needs-access"));
+    throw new Error("The access password was not accepted. Try again.");
   }
   if (res.status === 402) throw new Error("This OpenRouter account is out of credits.");
   if (res.status === 429) throw new Error("Too many requests. Wait a minute and try again.");

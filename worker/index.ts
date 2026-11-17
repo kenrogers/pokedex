@@ -38,8 +38,8 @@ export default {
     if (!max) return json({ error: "Not found." }, 404);
     if (request.method !== "POST") return json({ error: "Use POST." }, 405);
     if (!env.OPENROUTER_API_KEY) return json({ error: "This deploy has no OPENROUTER_API_KEY secret." }, 500);
-    if (!env.ACCESS_PASSWORD || request.headers.get("x-dex-key") !== env.ACCESS_PASSWORD) {
-      return json({ error: "Open this app once with ?key=YOUR_PASSWORD." }, 403);
+    if (!(await passwordOk(request.headers.get("x-dex-key"), env.ACCESS_PASSWORD))) {
+      return json({ error: "This app needs the access password." }, 403);
     }
     if (env.RATE_LIMITER) {
       const { success } = await env.RATE_LIMITER.limit({ key: request.headers.get("cf-connecting-ip") ?? "unknown" });
@@ -48,24 +48,20 @@ export default {
     const raw = await readCapped(request, max);
     if (raw === null) return json({ error: "Request too large." }, 413);
 
-    // Only the models this deploy allows. Audio bodies are big, so check the model with a cheap peek.
+    // The browser client sends JSON for every route, including transcriptions
+    // (base64 input_audio). Parse, allowlist the single model field, and forward
+    // the parsed object so a duplicate "model" key cannot slip through.
     const allowed = (env.ALLOWED_MODELS ?? "").split(",").map((m) => m.trim()).filter(Boolean);
-    let body = raw;
-    if (route === "audio/transcriptions") {
-      const m = /"model"\s*:\s*"([^"]+)"/.exec(raw.slice(0, 300))?.[1];
-      if (!m || !allowed.includes(m)) return json({ error: "Model not allowed." }, 400);
-    } else {
-      let parsed: Record<string, unknown>;
-      try { parsed = JSON.parse(raw); } catch { return json({ error: "Bad JSON." }, 400); }
-      if (!allowed.includes(String(parsed.model))) return json({ error: "Model not allowed." }, 400);
-      if (route === "chat/completions") {
-        parsed.max_tokens = Math.min(Number(parsed.max_tokens) || 1200, 1200);
-        if (!Array.isArray(parsed.messages) || parsed.messages.length > 20) return json({ error: "Bad messages." }, 400);
-        body = JSON.stringify(parsed);
-      }
-      if (route === "images") parsed.n = 1, (body = JSON.stringify(parsed));
-      if (route === "audio/speech" && String(parsed.input ?? "").length > 400) return json({ error: "Too much text." }, 413);
+    let parsed: Record<string, unknown>;
+    try { parsed = JSON.parse(raw); } catch { return json({ error: "Bad JSON." }, 400); }
+    if (!allowed.includes(String(parsed.model))) return json({ error: "Model not allowed." }, 400);
+    if (route === "chat/completions") {
+      parsed.max_tokens = Math.min(Number(parsed.max_tokens) || 1200, 1200);
+      if (!Array.isArray(parsed.messages) || parsed.messages.length > 20) return json({ error: "Bad messages." }, 400);
     }
+    if (route === "images") parsed.n = 1;
+    if (route === "audio/speech" && String(parsed.input ?? "").length > 400) return json({ error: "Too much text." }, 413);
+    const body = JSON.stringify(parsed);
 
     const upstream = await fetch(`https://openrouter.ai/api/v1/${route}`, {
       method: "POST",
@@ -87,6 +83,22 @@ export default {
     });
   },
 } satisfies ExportedHandler<Env>;
+
+/** Compare SHA-256 hashes with a constant-time XOR. Fail closed if the password is unset. */
+async function passwordOk(provided: string | null, expected: string | undefined): Promise<boolean> {
+  if (!expected) return false;
+  const enc = new TextEncoder();
+  const [a, b] = await Promise.all([
+    crypto.subtle.digest("SHA-256", enc.encode(provided ?? "")),
+    crypto.subtle.digest("SHA-256", enc.encode(expected)),
+  ]);
+  const x = new Uint8Array(a);
+  const y = new Uint8Array(b);
+  if (x.length !== y.length) return false;
+  let diff = 0;
+  for (let i = 0; i < x.length; i++) diff |= x[i] ^ y[i];
+  return diff === 0;
+}
 
 /** Read the body but stop once it's over `max` bytes (Content-Length can be missing or wrong). */
 async function readCapped(request: Request, max: number): Promise<string | null> {

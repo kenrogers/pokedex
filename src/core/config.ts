@@ -22,6 +22,10 @@ export const CAPS = {
   speechChars: 300,
 };
 
+/** Prefills for "Sign in with OpenRouter". The user can change both on the next screen. OpenRouter: limit is USD, expiration is one of 1-hour, 1-day, 7-days, 30-days, 90-days, 180-days, 1-year, or never. */
+export const KEY_LIMIT_USD = 5;
+export const KEY_EXPIRATION = "30-days";
+
 /** When set at build time, the page talks to this deploy's own /api/or proxy (server key) instead of OpenRouter. */
 export const SERVER_PROXY = !!env.VITE_SERVER_PROXY && env.VITE_SERVER_PROXY !== "false";
 

@@ -9,6 +9,8 @@
  *
  * Lesson idea: "trust, but verify" — code double-checks the AI's work.
  */
+import { isSafeCardImageUrl } from "@/lib/safe-image-url";
+
 export type CardInfo = {
   name: string;
   number: number;
@@ -36,7 +38,7 @@ export function setShinyTurn(v: boolean) { shinyTurn = v; }
  */
 function fixArtwork(openui: string): string {
   return openui.replace(CARD_RE, (whole, name: string, num: string, url: string) => {
-    if (url === "DRAWING" || url.startsWith("data:") || !/^\d{1,4}$/.test(num) || Number(num) < 1) return whole;
+    if (url === "DRAWING" || isSafeCardImageUrl(url) || !/^\d{1,4}$/.test(num) || Number(num) < 1) return whole;
     return `PokemonCard(${q(name)}, ${num}, ${q(`${ART}${shinyTurn ? "shiny/" : ""}${num}.png`)}`;
   });
 }

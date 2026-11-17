@@ -25,6 +25,7 @@
  */
 import { createLibrary, defineComponent } from "@openuidev/react-lang";
 import { z } from "zod/v4";
+import { safeCardImageUrl } from "@/lib/safe-image-url";
 
 // ---------- Shared helpers ----------
 
@@ -48,11 +49,6 @@ function prettyName(name: string): string {
 /** Small sprite image straight from PokéAPI's sprite collection, by Pokédex number. */
 function spriteFor(number: number): string {
   return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${number}.png`;
-}
-
-/** Big official artwork by Pokédex number (backup when the AI leaves imageUrl empty). */
-function artworkFor(number: number): string {
-  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${number}.png`;
 }
 
 /** While the AI is still streaming, some props can be missing. Arrays help us be safe. */
@@ -303,7 +299,7 @@ export const PokemonCard = defineComponent({
       </div>
       {props.imageUrl || props.number ? (
         <img
-          src={props.imageUrl || artworkFor(props.number)}
+          src={safeCardImageUrl(props.imageUrl, props.number)}
           alt={props.name}
           className="card-art object-contain drop-shadow-lg"
           // If the big artwork fails, fall back to the small game sprite.
