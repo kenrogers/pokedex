@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p worker/tsconfig.json",
+    "test:urls": "node --experimental-strip-types --no-warnings scripts/safe-image-url-test.ts",
     "deploy": "vite build && wrangler deploy",
     "build:private": "VITE_SERVER_PROXY=1 vite build",
     "deploy:private": "VITE_SERVER_PROXY=1 vite build && wrangler deploy -c wrangler.private.jsonc"

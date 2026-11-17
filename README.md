@@ -43,7 +43,7 @@ npx wrangler secret put ACCESS_PASSWORD   -c wrangler.private.jsonc
 npm run deploy:private   # builds with VITE_SERVER_PROXY=1
 ```
 
-Share the site URL. Each person enters the access password in the app. Tick **Remember this password on this device** only if they want it stored in this browser; otherwise it lasts until the tab is closed. Use **Forget password** on the main screen to remove it.
+Share the site URL. Each person enters the access password in the app. Tick **Remember this password on this device** only if they want it stored in this browser; otherwise it is kept only in memory, so a refresh or closing the tab clears it. Use **Forget password** on the main screen to remove it.
 
 Do not put the password in the URL, and do not share password links in chat or email.
 

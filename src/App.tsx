@@ -11,7 +11,6 @@ import { DEMO_SCREEN } from "@/lib/demo-screen";
 import { type Status, type Turn, VoiceControls } from "@/components/VoiceControls";
 import { SERVER_PROXY } from "@/core/config";
 import { forgetSavedSignIn } from "@/core/keys";
-import { dexChat, fetchDrawing, parseChatLine } from "@/lib/api-client";
 
 export default function Home() {
   const [status, setStatus] = useState<Status>("idle");
@@ -30,73 +29,79 @@ export default function Home() {
     if (params.has("demo")) setOpenui(DEMO_SCREEN);
   }, []);
 
-  // Local tests only: sessionStorage dex-test=1, then dispatch window event "dex:ask"
-  // with the question text. A link cannot set that flag or fire this event.
-  useEffect(() => {
-    if (sessionStorage.getItem("dex-test") !== "1") return;
-    let cancelled = false;
-    const onAsk = (e: Event) => {
-      const ask = typeof (e as CustomEvent).detail === "string" ? (e as CustomEvent).detail.trim() : "";
-      if (!ask) return;
-      void (async () => {
-        setStatus("thinking");
-        setHeard(ask);
-        try {
-          let text = "";
-          const cards: { name: string; number: number; imageUrl: string; types: string[]; genus: string }[] = [];
-          const drawings: Promise<void>[] = [];
-          const reader = dexChat([{ role: "user", content: ask }]).getReader();
-          const decoder = new TextDecoder();
-          let buffer = "";
-          for (;;) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split("\n");
-            buffer = lines.pop() ?? "";
-            for (const line of lines) {
-              if (!line.trim()) continue;
-              const parsed = parseChatLine(line);
-              if (!parsed) continue;
-              const event = parsed as { type: string; delta?: string; card?: (typeof cards)[0]; message?: string; drawing?: boolean; ticket?: string; shiny?: boolean };
-              if (event.type === "cards") (await import("@/lib/ensure-cards")).setShinyTurn(!!event.shiny);
-              else if (event.type === "reset") text = "";
-              else if (event.type === "text") text += event.delta ?? "";
-              else if (event.type === "pokemon" && event.card && event.drawing) {
-                const card = event.card;
-                cards.unshift(card);
-                if (event.ticket) drawings.push(fetchDrawing(event.ticket).then((url) => { if (url) card.imageUrl = url; }));
-              } else if (event.type === "pokemon" && event.card) cards.push(event.card);
-              else if (event.type === "error") throw new Error(event.message ?? "Chat error");
-            }
-          }
-          await Promise.all(drawings);
-          for (let i = cards.length - 1; i >= 0; i--) if (cards[i].imageUrl === "DRAWING") cards.splice(i, 1);
-          if (cancelled) return;
-          const { splitResponse } = await import("@/lib/response-format");
-          const { ensureCards } = await import("@/lib/ensure-cards");
-          let parts = splitResponse(text);
-          if (!parts.openui && cards.length) {
-            parts = { ...parts, openui: ensureCards("", cards), speech: parts.speech || cards.map((c) => c.name).join(", ") };
-          } else {
-            parts = { ...parts, openui: ensureCards(parts.openui, cards) };
-          }
-          if (parts.openui) setOpenui(parts.openui);
-          setSaid(parts.speech);
-          setStatus("idle");
-        } catch (err) {
-          if (cancelled) return;
-          setStatus("error");
-          setMessage(err instanceof Error ? err.message : "Something went wrong.");
+  // Local tests only, and only in the Vite dev build: sessionStorage dex-test=1,
+  // then dispatch window event "dex:ask" with the question text.
+  useEffect(
+    import.meta.env.DEV
+      ? () => {
+          if (sessionStorage.getItem("dex-test") !== "1") return;
+          let cancelled = false;
+          const onAsk = (e: Event) => {
+            const ask = typeof (e as CustomEvent).detail === "string" ? (e as CustomEvent).detail.trim() : "";
+            if (!ask) return;
+            void (async () => {
+              const { dexChat, fetchDrawing, parseChatLine } = await import("@/lib/api-client");
+              setStatus("thinking");
+              setHeard(ask);
+              try {
+                let text = "";
+                const cards: { name: string; number: number; imageUrl: string; types: string[]; genus: string }[] = [];
+                const drawings: Promise<void>[] = [];
+                const reader = dexChat([{ role: "user", content: ask }]).getReader();
+                const decoder = new TextDecoder();
+                let buffer = "";
+                for (;;) {
+                  const { done, value } = await reader.read();
+                  if (done) break;
+                  buffer += decoder.decode(value, { stream: true });
+                  const lines = buffer.split("\n");
+                  buffer = lines.pop() ?? "";
+                  for (const line of lines) {
+                    if (!line.trim()) continue;
+                    const parsed = parseChatLine(line);
+                    if (!parsed) continue;
+                    const event = parsed as { type: string; delta?: string; card?: (typeof cards)[0]; message?: string; drawing?: boolean; ticket?: string; shiny?: boolean };
+                    if (event.type === "cards") (await import("@/lib/ensure-cards")).setShinyTurn(!!event.shiny);
+                    else if (event.type === "reset") text = "";
+                    else if (event.type === "text") text += event.delta ?? "";
+                    else if (event.type === "pokemon" && event.card && event.drawing) {
+                      const card = event.card;
+                      cards.unshift(card);
+                      if (event.ticket) drawings.push(fetchDrawing(event.ticket).then((url) => { if (url) card.imageUrl = url; }));
+                    } else if (event.type === "pokemon" && event.card) cards.push(event.card);
+                    else if (event.type === "error") throw new Error(event.message ?? "Chat error");
+                  }
+                }
+                await Promise.all(drawings);
+                for (let i = cards.length - 1; i >= 0; i--) if (cards[i].imageUrl === "DRAWING") cards.splice(i, 1);
+                if (cancelled) return;
+                const { splitResponse } = await import("@/lib/response-format");
+                const { ensureCards } = await import("@/lib/ensure-cards");
+                let parts = splitResponse(text);
+                if (!parts.openui && cards.length) {
+                  parts = { ...parts, openui: ensureCards("", cards), speech: parts.speech || cards.map((c) => c.name).join(", ") };
+                } else {
+                  parts = { ...parts, openui: ensureCards(parts.openui, cards) };
+                }
+                if (parts.openui) setOpenui(parts.openui);
+                setSaid(parts.speech);
+                setStatus("idle");
+              } catch (err) {
+                if (cancelled) return;
+                setStatus("error");
+                setMessage(err instanceof Error ? err.message : "Something went wrong.");
+              }
+            })();
+          };
+          window.addEventListener("dex:ask", onAsk);
+          return () => {
+            cancelled = true;
+            window.removeEventListener("dex:ask", onAsk);
+          };
         }
-      })();
-    };
-    window.addEventListener("dex:ask", onAsk);
-    return () => {
-      cancelled = true;
-      window.removeEventListener("dex:ask", onAsk);
-    };
-  }, []);
+      : () => {},
+    [],
+  );
 
   return (
     <main className="min-h-[100dvh] bg-neutral-900">

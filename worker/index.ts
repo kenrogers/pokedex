@@ -49,19 +49,19 @@ export default {
     if (raw === null) return json({ error: "Request too large." }, 413);
 
     // The browser client sends JSON for every route, including transcriptions
-    // (base64 input_audio). Parse, allowlist the single model field, and forward
-    // the parsed object so a duplicate "model" key cannot slip through.
+    // (base64 input_audio). Parse, allowlist model as a string, and forward only
+    // the fields this app actually sends so extra keys cannot slip through.
     const allowed = (env.ALLOWED_MODELS ?? "").split(",").map((m) => m.trim()).filter(Boolean);
     let parsed: Record<string, unknown>;
     try { parsed = JSON.parse(raw); } catch { return json({ error: "Bad JSON." }, 400); }
-    if (!allowed.includes(String(parsed.model))) return json({ error: "Model not allowed." }, 400);
-    if (route === "chat/completions") {
-      parsed.max_tokens = Math.min(Number(parsed.max_tokens) || 1200, 1200);
-      if (!Array.isArray(parsed.messages) || parsed.messages.length > 20) return json({ error: "Bad messages." }, 400);
+    if (typeof parsed.model !== "string" || !allowed.includes(parsed.model)) return json({ error: "Model not allowed." }, 400);
+    if (route === "chat/completions" && (!Array.isArray(parsed.messages) || parsed.messages.length > 20)) {
+      return json({ error: "Bad messages." }, 400);
     }
-    if (route === "images") parsed.n = 1;
     if (route === "audio/speech" && String(parsed.input ?? "").length > 400) return json({ error: "Too much text." }, 413);
-    const body = JSON.stringify(parsed);
+    const bodyObj = pickClientFields(route, parsed);
+    if (!bodyObj) return json({ error: "Bad request." }, 400);
+    const body = JSON.stringify(bodyObj);
 
     const upstream = await fetch(`https://openrouter.ai/api/v1/${route}`, {
       method: "POST",
@@ -83,6 +83,34 @@ export default {
     });
   },
 } satisfies ExportedHandler<Env>;
+
+
+/** Copy only the fields the browser client sends for this route. */
+function pick(obj: Record<string, unknown>, keys: string[]): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const k of keys) if (k in obj) out[k] = obj[k];
+  return out;
+}
+
+function pickClientFields(route: string, parsed: Record<string, unknown>): Record<string, unknown> | null {
+  if (route === "chat/completions") {
+    const out = pick(parsed, ["model", "messages", "stream", "tools", "tool_choice", "parallel_tool_calls", "max_tokens", "reasoning", "temperature"]);
+    out.max_tokens = Math.min(Number(parsed.max_tokens) || 1200, 1200);
+    return out;
+  }
+  if (route === "images") {
+    const out = pick(parsed, ["model", "prompt", "aspect_ratio", "n"]);
+    out.n = 1;
+    return out;
+  }
+  if (route === "audio/speech") {
+    return pick(parsed, ["model", "input", "voice", "response_format"]);
+  }
+  if (route === "audio/transcriptions") {
+    return pick(parsed, ["model", "language", "input_audio"]);
+  }
+  return null;
+}
 
 /** Compare SHA-256 hashes with a constant-time XOR. Fail closed if the password is unset. */
 async function passwordOk(provided: string | null, expected: string | undefined): Promise<boolean> {
