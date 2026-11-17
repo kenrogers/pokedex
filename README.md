@@ -8,7 +8,7 @@ It is a static web app. Everything runs in your browser. The only cost is your o
 
 Each visitor signs in with OpenRouter (or pastes an OpenRouter key). Their key stays in their browser and is sent only to `openrouter.ai`. You host static files only, so hosting is free and you pay nothing for other people's use.
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/OWNER/dex-open)
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/kenrogers/pokedex)
 
 Or by hand:
 
